@@ -10,10 +10,10 @@ A timer is a counter, that gets initialized by software and increments independe
 # Are there timers or counters which have impacts on the I/O-Pins? #
 Yes every counter needs an external signal on an Input. 
 
-# How does a timer support the output of a pulse width modulation (PWM)? Whats in phase, in phase inverted and fast PWM? #
+# How does a timer support the output of a pulse width modulation (PWM)? Whats Phase Correct, Phase Correct Inverted and fast PWM? #
 The Timer/Counter Overflow Flag (TOV0) is set each time the counter reaches MAX. If the interrupt is enabled, the interrupt handler routine can be used for updating the compare value.
 
 
-## in phase ##
+## Phase Correct PWM Mode ##
 ## in phase inverted ##
 ## fast PWM ##
