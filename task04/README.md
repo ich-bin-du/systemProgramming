@@ -9,3 +9,5 @@ A timer is a counter, that gets initialized by software and increments independe
 
 # Are there timers or counters which have impacts on the I/O-Pins? #
 Yes every counter needs an external signal on an Input. 
+
+# How does a timer support the output of a pulse width modulation (PWM)? Whats in phase, in phase inverted and fast PWM? #
