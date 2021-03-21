@@ -15,5 +15,9 @@ The Timer/Counter Overflow Flag (TOV0) is set each time the counter reaches MAX.
 
 
 ## Phase Correct PWM Mode ##
-## in phase inverted ##
+ In non inverting Compare Output mode, the Output Compare (OC0) is cleared on the compare match
+between TCNT0 and OCR0 while upcounting, and set on the compare match while downcounting. 
+## Phase Correct Inverted PWM Mode ##
+In inverting Output Compare mode, the operation is inverted. The dual-slope operation has lower maximum operation frequency than single slope operation. However, due to the symmetric feature of the dual-slope PWM modes, these modes are preferred for motor control applications
 ## fast PWM ##
+the fast PWM mode uses the overflow and resets after counting from BOTTOM to MAX on BOTTOM. 
