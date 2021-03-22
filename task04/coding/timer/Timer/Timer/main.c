@@ -10,6 +10,8 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <stdio.h>
+#include <avr/interrupt.h>
+
 
 void setInitialValues(){
 	DDRA = 0x00;		//Input
@@ -19,7 +21,7 @@ void setInitialValues(){
 }
 
 void setBcdCodeTimer(uint8_t seconds){
-	uint8_t left = seconds / 10; 
+	uint8_t left = (seconds / 10) % 10; 
 	uint8_t right = seconds % 10;
 	PORTB = ~(left * 16 + right);
 }
@@ -33,14 +35,33 @@ void showBinary(uint8_t seconds){
 	PORTB = ~seconds;
 }
 
+
 int main(void)
 {
-    setInitialValues();
+	setInitialValues();
+	TCCR0 = (1<<CS01); // Timer0 configuration, Prescaler = 8
+	TIMSK |= (1<<TOIE0); // enable Timer Overflow Interrupt
+	sei();
 	uint8_t val = 0;
     while (1)	
     {
-		_delay_ms(1000);
-		setBcdCodeTimer(++val);
+		/*_delay_ms(1000);
+		setBcdCodeTimer(++val);*/
     }
 }
+uint8_t seconds = 0;
+int countInterrupts = 0;
+void scale(){
+	countInterrupts++;
+	if(countInterrupts == 4500){
+		setBcdCodeTimer(seconds++);
+		countInterrupts = 0;
+	}
+}
 
+ISR(TIMER0_OVF_vect)
+{
+	/* miscellanous, but keep it short (time) */
+	/* Interrupt is called by F_CPU/8/256 Hz */
+	scale();
+}
