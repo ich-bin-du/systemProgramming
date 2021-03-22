@@ -53,7 +53,7 @@ uint8_t seconds = 0;
 int countInterrupts = 0;
 void scale(){
 	countInterrupts++;
-	if(countInterrupts == 4500){
+	if(countInterrupts == (F_CPU / 256 / 8)){
 		setBcdCodeTimer(seconds++);
 		countInterrupts = 0;
 	}
