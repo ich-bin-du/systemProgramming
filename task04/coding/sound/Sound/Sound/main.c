@@ -20,7 +20,10 @@ int main(void)
     /* Replace with your application code */
     while (1) 
     {
-		PORTD--;
-		_delay_ms(100);
+		PORTD = (1 << PD2);
+		_delay_us( 1000000 / 440 );
+		PORTD = (1 << PD3);
+		_delay_us( 1000000 / 440 );
+		
     }
 }
