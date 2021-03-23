@@ -26,8 +26,7 @@ void init()
 }
 
 /**
- *	Count PortB up to show binary second counter. 
- *	If Second 60 is reached reset to 1. 
+ *	Initiate 8-Bit Timer/Counter0.
  */
 void init_timer()
 {
