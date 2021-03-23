@@ -2,7 +2,7 @@
  * play_melodie.c
  *
  * Created: 22.03.2021 12:08:24
- * Author : DAmth
+ * Author : Dominik Amthor
  */ 
 
 #ifndef F_CPU
