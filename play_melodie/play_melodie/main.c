@@ -46,20 +46,15 @@ void reset_signal()
 void set_signal( uint16_t frequency/*, uint16_t tone_length*/ )
 {
 	uint16_t time = 125000 / frequency; // F_CPU/(prescaler*frequency)
-	//for( int i = 0; i < tone_length; i++ )
-	//{
-		OCR1A = time;
-		OCR1B = time;
-	//}
-	//_delay_ms( 100 );
+	OCR1A = time;
+	OCR1B = time;
+
 }
 
 void set_delay( uint8_t delay )
 {
 	while( timer <= delay*10 );
 	timer = 0;
-	//for( int i = 0; i < delay; i++ )
-		//_delay_ms( 10 );
 }
 
 
@@ -77,88 +72,6 @@ int main( void )
 			set_signal( entchen_melodie[i] );
 			set_delay( entchen_timing[i] );
 		}
-
-		//set_signal( C ); // 1
-		//set_delay( 40 );
-//
-		//set_signal( D ); // 2
-		//set_delay( 40 );
-//
-		//set_signal( E ); // 3
-		//set_delay( 40 );
-//
-		//set_signal( F ); // 4
-		//set_delay( 40 );
-//
-		//set_signal( G ); // 5
-		//set_delay( 80 );
-
-		//set_signal( G ); // 6
-		//set_delay( 80 );
-//
-		//set_signal( A ); // 7
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 8
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 9
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 10
-		//set_delay( 40 );
-//
-		//set_signal( G ); // 11
-		//set_delay( 80 );
-
-		//set_signal( A ); // 12
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 13
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 14
-		//set_delay( 40 );
-//
-		//set_signal( A ); // 15
-		//set_delay( 40 );
-//
-		//set_signal( G ); // 11
-		//set_delay( 80 );
-
-		//set_signal( F ); // 16
-		//set_delay( 40 );
-//
-		//set_signal( F ); // 13
-		//set_delay( 40 );
-//
-		//set_signal( F ); // 14
-		//set_delay( 40 );
-//
-		//set_signal( F ); // 15
-		//set_delay( 40 );
-//
-		//set_signal( E ); // 16
-		//set_delay( 80 );
-
-		//set_signal( E ); // 17
-		//set_delay( 80 );
-//
-		//set_signal( G ); // 18
-		//set_delay( 80 );
-//
-		//set_signal( G ); // 19
-		//set_delay( 80 );
-//
-		//set_signal( G ); // 20
-		//set_delay( 80 );
-//
-		//set_signal( G ); // 21
-		//set_delay( 80 );
-//
-		//set_signal( C ); // 21
-		//set_delay( 80 );
-
     }
 }
 
