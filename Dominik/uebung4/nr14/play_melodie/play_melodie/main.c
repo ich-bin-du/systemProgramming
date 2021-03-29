@@ -1,5 +1,5 @@
 /*
- * play_melodie.c
+ * main.c
  *
  * Created: 22.03.2021 12:08:24
  * Author : Dominik Amthor
