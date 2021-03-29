@@ -122,27 +122,20 @@ void play_melodie_laterne( uint8_t *length )
 	}
 }
 
-/**
- *	Returns the length of the melodie array.
- */
-uint8_t get_melodie_length()
-{
-	return sizeof(laterne_melodie) / sizeof(laterne_melodie[0]);
-}
-
-
 int main( void )
 {
 	init();
 	init_timer();
 
-	uint8_t length = get_melodie_length();
+	uint8_t length1 = sizeof(laterne_melodie) / sizeof(laterne_melodie[0]);
+	uint8_t length2 = sizeof(entchen_melodie) / sizeof(entchen_melodie[0]);
+	uint8_t length3 = sizeof(got_melodie) / sizeof(got_melodie[0]);
 	
     while ( 1 )
     {
-		//play_melodie_entchen( &length );
-		play_melodie_laterne( &length );
-		//play_melodie_got( &length );
+		play_melodie_laterne( &length1 );
+		//play_melodie_entchen( &length2 );
+		//play_melodie_got( &length3 );
     }
 }
 
