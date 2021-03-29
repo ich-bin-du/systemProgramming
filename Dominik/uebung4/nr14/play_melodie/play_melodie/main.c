@@ -9,7 +9,6 @@
 	#define F_CPU 8000000UL
 #endif
 #include <avr/io.h>
-#include <util/delay.h>
 #include <avr/interrupt.h>
 
 volatile uint16_t timer = 0;
