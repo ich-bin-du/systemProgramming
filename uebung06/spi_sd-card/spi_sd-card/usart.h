@@ -10,7 +10,9 @@
 
 #include <stdio.h>
 
-#define F_CPU 8000000UL
+#ifndef F_CPU
+	#define F_CPU 8000000UL
+#endif
 #define BAUD		9600UL
 #define UBBR_BAUD	(F_CPU/(BAUD*16)-1)
 
