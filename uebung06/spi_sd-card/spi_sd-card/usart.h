@@ -15,14 +15,14 @@
 #define UBBR_BAUD	(F_CPU/(BAUD*16)-1)
 
 
-void init_usart( void );
+void usart_init( void );
 
-void transmit_usart( unsigned char data );
+void usart_transmit( unsigned char data );
 
 int usart_transmit_printf( char var, FILE *stream );
 
-unsigned char receive_usart( void );
+unsigned char usart_receive( void );
 
-void setup_stdio_stream( void );
+void usart_setup_stdio_stream( void );
 
 #endif /* USART_H_ */

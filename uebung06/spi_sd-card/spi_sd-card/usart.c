@@ -16,7 +16,7 @@ static FILE mystdout = FDEV_SETUP_STREAM( usart_transmit_printf, NULL, _FDEV_SET
 /*
  *	Init USART.
  */
-void init_usart()
+void usart_init()
 {
 	UBRRH = (unsigned char) ( UBBR_BAUD >> 8 );			// Set Baudrate for High Register
 	UBRRL = (unsigned char) UBBR_BAUD;					// Set Baudrate for Low Register
@@ -30,7 +30,7 @@ void init_usart()
  *
  *	@param data - data to be sent 
  */
-void transmit_usart( unsigned char data )
+void usart_transmit( unsigned char data )
 {
 	while( !(UCSRA & (1 << UDRE)) );	// UDRE Flag indicates if transmit buffer (UDR) is ready to receive new data
 
@@ -45,14 +45,14 @@ void transmit_usart( unsigned char data )
  */
 int usart_transmit_printf( char var, FILE *stream )
 {
-	transmit_usart( var );
+	usart_transmit( var );
 	return 0;
 }
 
 /*
  *	Receive message from sender.
  */
-unsigned char receive_usart( void )
+unsigned char usart_receive( void )
 {
 	if( UCSRA & (1 << RXC) );	// RXC Flag is set when unread data is in the receive buffer and cleared when it is empty
 		return UDR;		// return received data
@@ -62,7 +62,7 @@ unsigned char receive_usart( void )
 /*
  *	Setup stdio stream.
  */
-void setup_stdio_stream( void )
+void usart_setup_stdio_stream( void )
 {
 	stdout = &mystdout; 
 }
