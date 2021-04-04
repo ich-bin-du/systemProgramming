@@ -15,7 +15,12 @@
 
 void spi_init_master( void );
 
-void spi_transmit_data_master( unsigned char data );
+void spi_transmit_data( unsigned char data );
 
+unsigned char spi_receive_data( void );
+
+void spi_set_slave_select( void );
+
+void spi_reset_slave_select( void );
 
 #endif /* SPI_H_ */
