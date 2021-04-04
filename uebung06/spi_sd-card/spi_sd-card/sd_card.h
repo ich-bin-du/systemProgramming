@@ -12,7 +12,10 @@
 #define	EN1		PB1
 #define EN2		PB0
 
+void sd_init( void );
 
+void sd_holder_hardware_reset( void );
 
+unsigned char sd_send_cmd( unsigned char *cmd );
 
 #endif /* SD_CARD_H_ */
