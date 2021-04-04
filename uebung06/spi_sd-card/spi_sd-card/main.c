@@ -7,6 +7,12 @@
 
 #include <avr/io.h>
 
+void init_spi_master()
+{
+	DDRB = (1 << DDB5) | (1 << DDB7) | (1 << DDB4);
+
+	SPCR = (1 << SPE) | (1 << MSTR)
+}
 
 int main( void )
 {
