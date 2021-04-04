@@ -13,9 +13,9 @@
 #define SCK		DDB7
 #define SS		DDB4
 
-void init_spi_master( void );
+void spi_init_master( void );
 
-void transmit_data_master( unsigned char data );
+void spi_transmit_data_master( unsigned char data );
 
 
 #endif /* SPI_H_ */
