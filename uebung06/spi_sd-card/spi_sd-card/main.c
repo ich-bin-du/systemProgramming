@@ -4,9 +4,6 @@
  * Created: 04.04.2021 11:58:52
  * Author : Dominik Amthor
  */ 
-#ifndef F_CPU
-	#define F_CPU 8000000UL
-#endif
 #include <avr/io.h>
 #include "usart.h"
 #include "spi.h"
@@ -20,11 +17,11 @@ void init()
 
 int main( void )
 {
-	init_usart();
+	usart_init();
+	usart_setup_stdio_stream();
 
-	setup_stdio_stream();
-
-    init_spi_master();
+    spi_init_master();
+	sd_init();
 
     while (1) 
     {
