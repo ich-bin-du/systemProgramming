@@ -31,12 +31,12 @@ unsigned char spi_receive_data()
 	return SPDR;
 }
 
-void spi_set_slave_select( void )
+void spi_enable_slave_select( void )
 {
 	PORTB &= ~(1 << SS);
 }
 
-void spi_reset_slave_select( void )
+void spi_disable_slave_select( void )
 {
 	PORTB |= (1 << SS);
 }
