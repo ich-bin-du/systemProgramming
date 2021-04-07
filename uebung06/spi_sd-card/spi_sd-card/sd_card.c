@@ -4,6 +4,8 @@
  * Created: 04.04.2021 16:25:56
  *  Author: Dominik Amthor
  */ 
+
+
 #ifndef F_CPU
 	#define F_CPU 8000000UL
 #endif
@@ -44,19 +46,14 @@ uint8_t sd_init( void )
 
 	printf( "Start SD-Card init.\n" );
 
-	DDRB |= (1 << EN1) | (1 << EN2);	// EN1= Reset SD-Card; EN2= Power SD-Card Holder
-
-	sd_holder_hardware_reset();	// apply hardware reset of sd-card holder
+	sd_card_holder_init();
 
 	_delay_ms( 250 );	// Chapter 6.4. Power Scheme -> sd-card vdd_min is reached within 250ms
 
-	//spi_set_slave_select();
-	//_delay_ms( 5 );	// Chapter 6.4. Power Scheme -> in case of SPI mode CS (Chip Select) shall be held to high during 74 clock cycles -> 1/(F_CPU/Prescaler)*1000 = 1 clock cycle
-	//spi_reset_slave_select();
-	
 	sd_power_up_seq();
 
-	while( (result[0] = sd_go_idle_state()) != 0x01 )
+
+	while( (result[0] = sd_go_idle_state_CMD0()) != 0x01 )
 	{
 		printf( "Go_IDLE_STATE = 0x%02x \n ", result[0] );
 		terminate_counter++;
@@ -141,29 +138,29 @@ uint8_t sd_init( void )
 	//{
 		//received_status = sd_send_cmd( CMD16 );
 	//} while ( received_status != 0x00 );
- }
+}
 
-
-void sd_power_up_seq( void )
+/**
+ *	Initialize the SD-Card Holder Pins and start reset routine of SD-Card Holder.
+ *	See Data sheet --> C_CONTROL_PRO_SD_CARD_INTERFACE.pdf
+ */
+void sd_card_holder_init( void )
 {
-	printf( "Begin with Power Up Sequence \n" );
-
-	spi_disable_slave_select();		// make sure card is deselected
-
-	_delay_ms( 10 );				// time for sd card to power up
-
-	spi_transmit_data( 0xff );
-	spi_disable_slave_select();		// deselect SD card
+	DDRB |= (1 << EN1) | (1 << EN2);	// EN1 = Reset SD-Card; EN2 = Power SD-Card Holder
 	
-	for( uint8_t i = 0; i < 80; i++ )	// send 80 clock cycles to synchronize 
-		spi_transmit_data( 0xff );	 
+	sd_holder_hardware_reset();			// apply hardware reset of sd-card holder
 }
 
 
-/*
+/**
  *	EN1= Reset SD-Card (low= running mode / high = reset)
  *	EN2= Power SD-Card Holder (low= off / high= on)
  *	Timing signal min. 50ms
+ *		 ->min.50ms<-
+ *			 ___
+ *	EN1	____|	|____
+ *		____	 ____
+ *	EN2		|___|
  */
 void sd_holder_hardware_reset( void )
 {
@@ -171,24 +168,50 @@ void sd_holder_hardware_reset( void )
 
 	PORTB |= (1 << EN1);
 	PORTB &= ~(1 << EN2);
-	_delay_ms( 100 );
+	_delay_ms( 75 );
 	PORTB &= ~(1 << EN1);
 	PORTB |= (1 << EN2);
 }
 
 
-/*
- *	
+/**
+ *	Chapter 6.4. Power Scheme
+ *	In case of SPI mode CS (Chip Select) shall be held to high during 74 clock cycles -> 1/(F_CPU/Prescaler)*1000 = 1 clock cycle
+ *	We need to provide at least 1 ms delay and 74 clock cycles before sending commands to SD Card.
  */
-void sd_send_cmd( unsigned char *cmd )
+void sd_power_up_seq( void )
+{
+	printf( "Begin with Power Up Sequence \n" );
+
+	spi_disable_slave_select();			// make sure card is deselected (High signal)
+
+	_delay_ms( 10 );					// time for SD-Card to power up
+
+	spi_transmit_data( 0xff );
+	spi_disable_slave_select();			// deselect SD-Card (High signal)
+	
+	for( uint8_t i = 0; i < 80; i++ )	// send 80 clock cycles to synchronize (8Mhz --> 0,008ms)
+		spi_transmit_data( 0xff );	 
+}
+
+
+/**
+ *	Transmit 6 byte of CMD token
+ *	Byte 1:		start bit + transmission bit + command index (6bit)
+ *	Byte 2-5:	argument (32bit)
+ *	Byte 3:		CRC (7bit) + end bit
+ */
+void sd_send_cmd_token( uint8_t *cmd )
 {	
 	printf( "Send Command \n" );
 
 	for( uint8_t i = 0; i < 6; ++i )
-		spi_transmit_data( cmd[i] );	// transmit 6 byte of CMD (start bit, transmission bit, command index (6bit), argument(32bit), CRC (7bit), end bit
+		spi_transmit_data( cmd[i] );	
 }
 
-/*
+
+/**
+ *	
  *	
  */
 uint8_t sd_read_r1_result( void )
@@ -209,7 +232,12 @@ uint8_t sd_read_r1_result( void )
 	return r1_result;
 }
 
-uint8_t sd_go_idle_state( void )
+
+/**
+ *	
+ *	
+ */
+uint8_t sd_go_idle_state_CMD0( void )
 {
 	printf( "Start sending go_idle_state (CMD0) \n" );
 
@@ -217,7 +245,7 @@ uint8_t sd_go_idle_state( void )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd( CMD0 );
+	sd_send_cmd_token( CMD0 );
 
 	uint8_t r1_result = sd_read_r1_result();
 
@@ -228,6 +256,11 @@ uint8_t sd_go_idle_state( void )
 	return r1_result;
 }
 
+
+/**
+ *	
+ *	
+ */
 void sd_read_r7_result( uint8_t *result )
 {
 	printf( "Start reading R7 result \n" );
@@ -245,7 +278,8 @@ void sd_read_r7_result( uint8_t *result )
 	}
 }
 
-/*
+/**
+ *	
  *	
  */
 void sd_send_if_cond( uint8_t *result )
@@ -256,7 +290,7 @@ void sd_send_if_cond( uint8_t *result )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd( CMD8 );
+	sd_send_cmd_token( CMD8 );
 
 	sd_read_r7_result( result );
 
@@ -266,7 +300,8 @@ void sd_send_if_cond( uint8_t *result )
 }
 
 
-/*
+/**
+ *	
  *	
  */
 void sd_read_r3_result( uint8_t *result )
@@ -276,6 +311,11 @@ void sd_read_r3_result( uint8_t *result )
 	sd_read_r7_result( result );
 }
 
+
+/**
+ *	
+ *	
+ */
 void sd_send_read_ocr( uint8_t *result )
 {
 	printf( "Start sending read_ocr (CMD58) \n" );
@@ -284,7 +324,7 @@ void sd_send_read_ocr( uint8_t *result )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd( CMD58 );
+	sd_send_cmd_token( CMD58 );
 
 	sd_read_r3_result( result );
 
@@ -293,6 +333,10 @@ void sd_send_read_ocr( uint8_t *result )
 	spi_transmit_data( 0xff );	
 }
 
+/**
+ *	
+ *	
+ */
 uint8_t sd_send_app_cmd( void )
 {
 	printf( "Start sending app_cmd (CMD55) \n" );
@@ -301,7 +345,7 @@ uint8_t sd_send_app_cmd( void )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd( CMD55 );
+	sd_send_cmd_token( CMD55 );
 
 	uint8_t r1_result = sd_read_r1_result();
 
@@ -312,6 +356,10 @@ uint8_t sd_send_app_cmd( void )
 	return r1_result;
 }
 
+/**
+ *	
+ *	
+ */
 uint8_t sd_send_op_cond( void )
 {
 	printf( "Start sending send_op_cond (ACMD41) \n" );
@@ -320,7 +368,7 @@ uint8_t sd_send_op_cond( void )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd( ACMD41 );
+	sd_send_cmd_token( ACMD41 );
 
 	uint8_t r1_result = sd_read_r1_result();
 
@@ -331,7 +379,10 @@ uint8_t sd_send_op_cond( void )
 	return r1_result;
 }
 
-
+/**
+ *	
+ *	
+ */
 unsigned char* sd_read_single_block( void )
 {
 	uint8_t r1_result, read;
@@ -343,7 +394,7 @@ unsigned char* sd_read_single_block( void )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xFF );
 
-	sd_send_cmd( CMD17 );	// send CMD17
+	sd_send_cmd_token( CMD17 );	// send CMD17
 	r1_result = sd_read_r1_result();	// read R1
 
 	// if response received from card
@@ -381,7 +432,10 @@ unsigned char* sd_read_single_block( void )
 	return buffer;
 }
 
-
+/**
+ *	
+ *	
+ */
 uint8_t sd_write_single_block( unsigned char* data )
 {
 	uint8_t r1_result, terminate_counter, read;
@@ -391,7 +445,7 @@ uint8_t sd_write_single_block( unsigned char* data )
 	spi_enable_slave_select();
 	spi_transmit_data( 0xFF );
 
-	sd_send_cmd( CMD24 ); // send CMD24
+	sd_send_cmd_token( CMD24 ); // send CMD24
 	r1_result = sd_read_r1_result();	// read response
 
 	// if no error
