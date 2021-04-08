@@ -16,7 +16,17 @@
 // Command Pins
 
 
+#define SD_R7_CHECK_PATTERN		0xaa
+
+// Response token state
+#define SD_INIT_COMPLETED	0x00
+#define SD_IDLE_STATE		0x01
+#define SD_ERASE_RESET		0x02
+
+
+
 #define SD_ERROR	1
+#define SD_RUNNING	0
 
 
 uint8_t sd_init( void );

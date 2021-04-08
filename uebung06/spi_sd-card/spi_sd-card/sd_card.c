@@ -39,6 +39,8 @@ unsigned char ACMD22[] = { 0x56, 0x00, 0x00, 0x00, 0x00, 0x01 };	// SEND_NUM_WR_
 
 /*
  *	Init SD-Card.
+ *
+ *	@return uint8_t error state while init.
  */
 uint8_t sd_init( void )
 {
@@ -46,94 +48,60 @@ uint8_t sd_init( void )
 
 	printf( "Start SD-Card init.\n" );
 
-	sd_card_holder_init();
+	printf( "Begin with SD-Card Holder init and reset \n" );
+	sd_card_holder_init();	// Init SD-Card holder
 
-	_delay_ms( 250 );	// Chapter 6.4. Power Scheme -> sd-card vdd_min is reached within 250ms
+	_delay_ms( 250 );		// Chapter 6.4. Power Scheme -> sd-card vdd_min is reached within 250ms
 
-	sd_power_up_seq();
+	printf( "Begin with Power Up Sequence \n" );
+	sd_power_up_seq();		// Power-Up sequence to communicate with the sd
 
-
-	while( (result[0] = sd_cmd_with_r1_response( CMD0 )) != 0x01 )		// CMD0
+	// Try to bring the SD-Card to idle state.
+	// Chapter 6.4. Power Scheme -> In case of SPI host, CMD0 shall be the first command to send the card to SPI mode.
+	while( (result[0] = sd_cmd_with_r1_response( CMD0 )) != SD_IDLE_STATE )		// CMD0 --> Answer is a R1-Response [SD Spec Chapter 7.3.2.1 Format R1]
 	{
 		printf( "Go_IDLE_STATE = 0x%02x \n ", result[0] );
 		terminate_counter++;
-		if( terminate_counter > 10 ) return SD_ERROR;
+		if( terminate_counter > 10 ) return SD_ERROR;	
 	}
 	printf( "-> Result from Go_IDLE_STATE = 0x%02x \n\n ", result[0] );
 
-	sd_send_if_cond_CMD8( result );		// CMD8
+	// Send Interface Condition Command -> Card has to be in idle state -> checks voltage
+	// SD Spec Chapter 4.3.13 Send Interface Condition Command (CMD8)
+	sd_send_if_cond_CMD8( result );			// CMD8
 
-	if( result[0] != 0x01 )
+	if( result[0] != SD_IDLE_STATE )		// answer other than IDLE_STATE leads to an error
 		return SD_ERROR;
 
-	if( result[4] != 0xaa )
+	if( result[4] != SD_R7_CHECK_PATTERN )	// checks if the echo pattern is the same as what was sent
 		return SD_ERROR;
 
 	terminate_counter = 0;
 	do 
 	{
-		if( terminate_counter > 100 ) return 1;
+		if( terminate_counter > 100 ) return SD_ERROR;
 
+		// This command, when received by the card, causes the card to interpret the following command as an application-specific command, ACMD.
+		// If you send the card a CMD55 (this includes waiting for the response) and then another command, it will be interpreted as an "application specific" command
+		// SD Spec Chapter 4.3.9.1 Application-Specific-Command - APP_CMD (CMD55)
 		result[0] = sd_cmd_with_r1_response( CMD55 );		// CMD55
 
-		if( result[0] < 2 )
-			result[0] = sd_cmd_with_r1_response( ACMD41 ); // ACMD41
+		// SD_SEND_OP_COND (ACMD41) is used to start initialization and to check if the card has completed
+		// initialization. It is mandatory to issue CMD8 prior to the first ACMD41
+		// SD Spec Chapter 7.2.1 Mode Selection and Initialization and 4.2.3.1 Initialization Command (ACMD41)
+		if( result[0] < SD_ERASE_RESET )	// 0x01 means idle and 0x00 means init completed, therefore is all greater than 1 an error state
+			result[0] = sd_cmd_with_r1_response( ACMD41 );	// ACMD41
 
-		_delay_ms( 10 );
-
+		_delay_ms( 10 );	// short waiting 
 		terminate_counter++;
+	} while ( result[0] != SD_INIT_COMPLETED );	// if 0x01 means card is still initializing 0x00 means completion of initialization.
 
-	} while ( result[0] != 0x00 );
+	// Read from OCR Register (operation conditions register)
+	sd_send_read_ocr_CMD58( result );	// CMD58
 
-	sd_send_read_ocr_CMD58( result ); // CMD58
+	// Block length of SD-Card can be set with CMD16 (SET_BLOCKLEN. For SDHC and SDXC cards default block length is set to 512 bytes.
 
-	return 0;
-	//spi_transmit_data( 0xff );
-	//spi_enable_slave_select();
-	//spi_transmit_data( 0xff );
-//
-	//printf( "Sending the CMD0 command\n" );
-	////spi_set_slave_select();		// start SPI mode
-	//do 
-	//{
-		//received_status = sd_send_cmd( CMD0 );	// Chapter 6.4. Power Scheme -> In case of SPI host, CMD0 shall be the first command to send the card to SPI mode.
-	//} while( received_status != 0x01 );
-	
-	//spi_transmit_data( 0xff );
-	//spi_disable_slave_select();
-	//spi_transmit_data( 0xff );
-//
-	//spi_transmit_data( 0xff );
-	//spi_enable_slave_select();
-	//spi_transmit_data( 0xff );
-//
-	//printf( "Sending the CMD8 command\n" );
-	//received_status = sd_send_cmd( CMD8 );
-	//printf( "Response CMD8 0x%02x\n", received_status );
-//
-	//spi_transmit_data( 0xff ); 
-	//received_status = spi_receive_data();	
-	//printf( "Response CMD8 0x%02x\n", received_status );
-
-	//printf( "Sending the CMD8 command\n" );
-	//received_status = sd_send_cmd( CMD8 );
-	//spi_transmit_data( 0xff );
-	//received_status = spi_receive_data();
-	//printf( "0x%02x\n", received_status );
-
-	//printf( "Sending the CMD55 and ACMD41 command\n" );
-	//do 
-	//{
-		//sd_send_cmd( CMD55 ); // If you send the card a CMD55 (this includes waiting for the response) and then another command, it will be interpreted as an "application specific" command
-		//received_status = sd_send_cmd( ACMD41 );
-	//} while ( received_status != 0x00 );
-//
-//
-	//printf( "Sending the CMD16 command to set Block length to 512 Bytes.\n" );
-	//do
-	//{
-		//received_status = sd_send_cmd( CMD16 );
-	//} while ( received_status != 0x00 );
+	return SD_RUNNING;
 }
 
 /**
@@ -144,7 +112,7 @@ void sd_card_holder_init( void )
 {
 	DDRB |= (1 << EN1) | (1 << EN2);	// EN1 = Reset SD-Card; EN2 = Power SD-Card Holder
 	
-	sd_holder_hardware_reset();			// apply hardware reset of sd-card holder
+	sd_holder_hardware_reset();			// apply hardware reset of SD-Card holder
 }
 
 
@@ -160,8 +128,6 @@ void sd_card_holder_init( void )
  */
 void sd_holder_hardware_reset( void )
 {
-	printf( "Begin with SD-Card Holder reset \n" );
-
 	PORTB |= (1 << EN1);
 	PORTB &= ~(1 << EN2);
 	_delay_ms( 75 );
@@ -177,8 +143,6 @@ void sd_holder_hardware_reset( void )
  */
 void sd_power_up_seq( void )
 {
-	printf( "Begin with Power Up Sequence \n" );
-
 	spi_disable_slave_select();			// make sure card is deselected (High signal)
 
 	_delay_ms( 10 );					// time for SD-Card to power up
@@ -196,6 +160,8 @@ void sd_power_up_seq( void )
  *	Byte 1:		start bit + transmission bit + command index (6bit)
  *	Byte 2-5:	argument (32bit)
  *	Byte 3:		CRC (7bit) + end bit
+ *
+ *	@param cmd	command token which should be transfered.
  */
 void sd_send_cmd_token( uint8_t *cmd )
 {	
@@ -207,78 +173,94 @@ void sd_send_cmd_token( uint8_t *cmd )
 
 
 /**
+ *	This response token is sent by the card after every command with the exception 
+ *	of SEND_STATUS commands. Response length is 1 Byte. MSB is always set to zero.
+ *	All other bits indicates an error signaled by 1.
+ *	[SD Spec Chapter 7.3.2.1 Format R1]
  *	
- *	
+ *	@return uint8_t R1 Response token.
  */
 uint8_t sd_read_r1_result( void )
 {
 	printf( "Start reading R1 result \n" );
 
-	uint8_t terminate_counter = 0, r1_result;
+	uint8_t r1_result, terminate_counter = 0;
 
 	do {
 		spi_transmit_data( 0xff );
-		r1_result = spi_receive_data();
+		r1_result = spi_receive_data();		// run loop till actual data is received
 		printf( "---> R1-Result = 0x%02x \n", r1_result );
 
 		terminate_counter++;
-
-	} while( (r1_result == 0xff) && (terminate_counter < 8) );
+	} while( (r1_result == 0xff) && (terminate_counter < 8) );	// abort loop if no response is received for 8 bytes or the result is not equal to 0xff
 
 	return r1_result;
 }
 
 
 /**
- *	
- *	
+ *	This response token is sent by the card when a READ_OCR command is received.
+ *	Same length as R7-Result. Therefore R7-Result method is called.
+ *	[SD Spec Chapter 7.3.2.1 Format R1]
+ *
+ *	@param result	Byte array that holds 5 Byte of R3-Response
  */
 void sd_read_r3_result( uint8_t *result )
 {
 	printf( "R3-Result is called \n" );
 
-	sd_read_r7_result( result );
+	sd_read_r7_result( result );	// forward to r7-response method
 }
 
 
 /**
- *	
- *	
+ *	This response token is sent by the card when a SEND_IF_COND command (CMD8) is received. The
+ *	response length is 5 bytes. The structure of the first (MSB) byte is identical to response type R1. The
+ *	other four bytes contain the card operating voltage information and echo back of check pattern in
+ *	argument.
+ *	[SD Spec Chapter 7.3.2.6 Format R7]
+ *
+ *	@param result	Byte array that holds 5 Byte of R7-Response
  */
 void sd_read_r7_result( uint8_t *result )
 {
 	printf( "Start reading R7 result \n" );
 
-	result[0] = sd_read_r1_result();
+	result[0] = sd_read_r1_result();	// 1 byte R1 response token
 	printf( "---> R7-Result[0] = 0x%02x \n", result[0] );
 
-	if( result[0] > 1 ) return;
+	if( result[0] > 1 ) return;		// if R1-Response has an error
 
+	// run loop till the last 4 bytes of R7-Response are received.
 	for( uint8_t i = 1; i < 5; ++i )
 	{
 		spi_transmit_data( 0xff );
-		result[i] = spi_receive_data();
+		result[i] = spi_receive_data();		
 		printf( "---> R7-Result[%i] = 0x%02x \n", i, result[i] );
 	}
 }
 
 
 /**
- *	
- *	
+ *	To send commands which receive an R1 response.
+ *
+ *	@param cmd	command which should be transfered.
+ *	@return	uint8_t	R1-Response as result.
  */
 uint8_t sd_cmd_with_r1_response( uint8_t *cmd )
 {
 	printf( "Start sending command with r1 response \n" );
 
+	// Enable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( cmd );
+	sd_send_cmd_token( cmd );	// send the parameter that was passed
 
-	uint8_t r1_result = sd_read_r1_result();
+	uint8_t r1_result = sd_read_r1_result();	// collect R1-Reponse from cmd
 
+	// Disable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
 	spi_transmit_data( 0xff );
@@ -288,21 +270,25 @@ uint8_t sd_cmd_with_r1_response( uint8_t *cmd )
 
 
 /**
- *	
- *	
+ *	Send Interface Condition Command -> Card has to be in idle state -> checks voltage
+ *	[SD Spec Chapter 4.3.13 Send Interface Condition Command (CMD8)]
+ *
+ *	@param result	Byte array that holds 5 Byte of R7-Response.
  */
 void sd_send_if_cond_CMD8( uint8_t *result )
 {
 	printf( "Start sending if_cond (CMD8) \n" );
 
+	// Enable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( CMD8 );
+	sd_send_cmd_token( CMD8 );		// send CMD8 command
 
-	sd_read_r7_result( result );
+	sd_read_r7_result( result );	// collect R7-Reponse from CMD8
 
+	// Disable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
 	spi_transmit_data( 0xff );
@@ -310,21 +296,26 @@ void sd_send_if_cond_CMD8( uint8_t *result )
 
 
 /**
- *	
- *	
+ *	Read from OCR Register (operation conditions register)
+ *	Shows supported voltage of SD-Card and if SD-Card has finished his power-up routine and which card type it is (SDHC/SDXC)
+ *	[SD Spec Chapter 7.2.1 Mode Selection and Initialization]
+ *
+ *	@param result	Byte array that holds 5 Byte of R3-Response.
  */
 void sd_send_read_ocr_CMD58( uint8_t *result )
 {
 	printf( "Start sending read_ocr (CMD58) \n" );
 
+	// Enable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( CMD58 );
+	sd_send_cmd_token( CMD58 );		// send CMD58 command
 
-	sd_read_r3_result( result );
+	sd_read_r3_result( result );	// collect R3-Reponse from CMD58
 
+	// Disable Chip Select (CS)
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
 	spi_transmit_data( 0xff );	
@@ -332,21 +323,29 @@ void sd_send_read_ocr_CMD58( uint8_t *result )
 
 
 /**
- *	
- *	
+ *	The SPI mode supports single block read and Multiple Block read operations (CMD17 or CMD18 in the
+ *	SD Memory Card protocol). Upon reception of a valid read command the card will respond with a
+ *	response token followed by a data token (Refer to Figure 7-3). In case of Standard Capacity Card, the
+ *	size in the data token is determined by the block length set by SET_BLOCKLEN (CMD16). In case of
+ *	SDHC and SDXC Cards, block length is fixed to 512 Bytes regardless of the block length set by CMD16.
+ *	[SD Spec Chapter 7.2.3 Data Read]
+ *
+ *	@param buffer		buffer in which the bytes read from the SD card are to be stored.
+ *	@return uint8_t		R1-Response of the CMD17.
  */
 uint8_t sd_read_single_block( uint8_t *buffer )
 {
 	uint8_t r1_result, read;
 	uint16_t terminate_counter;
 
-	// assert chip select
+	// Enable chip select
 	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( CMD17 );			// CMD17
-	r1_result = sd_read_r1_result();	// R1 Response
+	// CMD17 --> (READ_SINGLE_BLOCK) initiates a block read and after completing the transfer, the card returns to the Transfer State.
+	sd_send_cmd_token( CMD17 );			// send cmd 17 to read single block from sd-card
+	r1_result = sd_read_r1_result();	// collect R1 Response from CMD17 command
 
 	// if response received from card
 	if( r1_result != 0xff )
@@ -355,27 +354,28 @@ uint8_t sd_read_single_block( uint8_t *buffer )
 		terminate_counter = 0;
 		while( ++terminate_counter != 1563 )
 		{
-			spi_transmit_data( 0xff );
-			if( (read = spi_receive_data() ) != 0xff ) break;
+			spi_transmit_data( 0xff );	// if you want to read only one byte, e.g. because you are waiting for a response from the card, you simply send a 0xff. The card does the same when it only receives data.
+			if( (read = spi_receive_data()) != 0xff ) break;
 		}
 		
 		// if response token is 0xfe
-		if( read == 0xfe )
+		if( read == 0xfe )		// if data is in internal buffer Data Token 0xfe is send from sd-card
 		{
 			// read 512 byte block
 			for( uint16_t i = 0; i < 512; i++ ) 
 			{
 				spi_transmit_data( 0xff );
-				buffer[i] = spi_receive_data(); 
+				buffer[i] = spi_receive_data();		// read 512 Bytes data from sd card and save in buffer[] 
+				// Generally the card always pulls the MISO line high when it has nothing to say, i.e. you always receive 0xff. 
 			}
 
-			// read 16-bit CRC
+			// // read last two CRC bytes after 512 Byte data, 16-bit CRC
 			spi_transmit_data( 0xff );
 			spi_transmit_data( 0xff );
 		}
 	}
 
-	// deassert chip select
+	// Disable chip select
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
 	spi_transmit_data( 0xff );
@@ -385,14 +385,20 @@ uint8_t sd_read_single_block( uint8_t *buffer )
 
 
 /**
- *	
- *	
+ *	The SPI mode supports single block and multiple block write commands. Upon reception of a valid write
+ *	command (CMD24 or CMD25 in the SD Memory Card protocol), the card will respond with a response
+ *	token and will wait for a data block to be sent from the host. CRC suffix, block length and start address
+ *	restrictions are (with the exception of the CSD parameter WRITE_BL_PARTIAL controlling the partial
+ *	block write option and WRITE_BL_LEN) identical to the read operation.
+ *
+ *	@param data			data to be stored on the SD-Card.
+ *	@return uint8_t		R1-Response of the CMD24.
  */
 uint8_t sd_write_single_block( uint8_t* data )
 {
 	uint8_t r1_result, read, terminate_counter = 0;
 
-	// assert chip select
+	// Enable chip select
 	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
 	spi_transmit_data( 0xff );
@@ -403,23 +409,23 @@ uint8_t sd_write_single_block( uint8_t* data )
 	// if no error
 	if( r1_result == 0x00 )
 	{
-		spi_transmit_data( 0xfe );	// send start token
+		spi_transmit_data( 0xfe );	// // Start token, so that the sd-card can recognize the beginning of the block.
 
 		// write buffer to card
 		for( uint16_t i = 0; i < 512; i++ ) 
-			spi_transmit_data( data[i] );
+			spi_transmit_data( data[i] );	// write data to specified block from CMD
 
 		// wait for a response (timeout = 250ms)
 		terminate_counter = 0;
 		while( ++terminate_counter != 1563 )
 		{
 			spi_transmit_data( 0xff );
-			read = spi_receive_data();
+			read = spi_receive_data();	// answer that write was successful or not
 			if( read != 0xff ) break;
 		}
 		
 		// if data accepted
-		if( (read & 0x1f) == 0x05 )
+		if( (read & 0x1f) == 0x05 )		// when byte is transmitted the sd-card send an Data Response Byte. First three bit should be ignored. 0x05 means 'data accepted'.
 		{
 			// wait for write to finish (timeout = 250ms)
 			terminate_counter = 0;
@@ -427,134 +433,14 @@ uint8_t sd_write_single_block( uint8_t* data )
 			{
 				spi_transmit_data( 0xff );
 				if( ++terminate_counter == 1563 ) break;
-			} while ( spi_receive_data() == 0x00 );
+			} while ( spi_receive_data() == 0x00 );		// if response is 0x00 than the write is completed
 		}
 	}
 
-	// deassert chip select
+	// disable chip select
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
 	spi_transmit_data( 0xff );
 
 	return r1_result;
 }
-
-
-//unsigned char sd_send_cmd( unsigned char *cmd )
-//{
-	//unsigned char received_status;
-	//uint32_t terminate_counter;
-//
-	//for( int i = 0; i < 6; ++i )
-		//spi_transmit_data( cmd[i] );	// transmit 6 byte of CMD (start bit, transmission bit, command index (6bit), argument(32bit), CRC (7bit), end bit
-//
-	//terminate_counter = 0;
-	//do 
-	//{
-		//spi_transmit_data( 0xff ); // if you want to read only one byte, e.g. because you are waiting for a response from the card, you simply send a 0xff. The card does the same when it only receives data.
-		//received_status = spi_receive_data();	// Generally the card always pulls the MISO line high when it has nothing to say, i.e. you always receive 0xff. 
-		//printf( "Send CMD with response 0x%02x\n", received_status );
-		//terminate_counter++;
-	//} 
-	//while( ((received_status & 0x80) != 0x00) && (terminate_counter < 0xffff) ); // wait till MSB in received_data is set. R1 -> 0x01 (in idle state) and timeout
-	//// The most Significant Bit (MSB) is transmitted first, the LSB is the last
-//
-	//return received_status;
-//}
-
-
-/*
- *	
- */
-//unsigned char* sd_read_single_block( void )
-//{
-	//static unsigned char buffer[512];
-	//unsigned char received_status;
-	//uint16_t terminate_counter;
-//
-	//printf( "Sending the CMD17 command to read single block from SD.\n" );
-	//received_status = sd_send_cmd( CMD17 );	// send cmd 17 to read single block from sd-card
-//
-	//printf( "Status Code read_single_block 0x%02x.\n", received_status );
-	//if( received_status == 0x00 )
-	//{
-		//terminate_counter = 0;
-		//do 
-		//{
-			//spi_transmit_data( 0xff );
-			//received_status = spi_receive_data();
-			//printf( "Status Code read_single_block 0x%02x.\n", received_status );
-			//terminate_counter++;
-		//} while ( (received_status != 0xfe) && (terminate_counter < 0x3ff) );
-//
-		//printf( "Status Code after read to internal buffer 0x%02x.\n", received_status );
-		//if( received_status == 0xfe )			// if data is in internal buffer Data Token 0xfe is send from sd-card
-		//{
-			//printf( "Read from SD.\n" );
-			//for( int i = 0; i < 512; ++i )
-			//{
-				//spi_transmit_data( 0xff );
-				//buffer[i] = spi_receive_data();	// read 512 Bytes data from sd card and save in buffer[] 
-			//}
-//
-			//for( int i = 0; i < 2; ++i )	// read last two CRC bytes after 512 Byte data
-			//{
-				//spi_transmit_data( 0xff );
-				//spi_receive_data();			// read CRC bytes and discard
-			//}
-			//received_status = 0x01;	
-		//}
-	//}
-	//return buffer;
-//}
-
-
-/*
- *	
- */
-//unsigned char sd_write_single_block( unsigned char* data )
-//{
-	//unsigned char received_status;
-	//uint32_t terminate_counter;
-//
-	//printf( "Sending the CMD24 command to write single block to SD.\n" );
-	//received_status = sd_send_cmd( CMD24 );		// To write a data block on sd-card
-//
-	//if( received_status == 0x00 )
-	//{
-		//spi_transmit_data( 0xfe );		// Start token, so that the sd-card can recognize the beginning of the block.
-		//for( int i = 0; i < 512; ++i )
-		//{
-			//spi_transmit_data( data[i] );	// write data to specified block from CMD
-			////printf( "0x%02x ", spi_receive_data() );
-		//}	
-//
-		//spi_transmit_data( 0xde );		// CRC Byte 1
-			////printf( "	0x%02x ", spi_receive_data() );
-		//spi_transmit_data( 0xad );		// CRC Byte 2
-			////printf( "	0x%02x ", spi_receive_data() );
-//
-		//terminate_counter = 0;
-		//do 
-		//{
-			//spi_transmit_data( 0xff );
-			//received_status = spi_receive_data();
-			//printf( "Status Code answer after write 0x%02x.\n", received_status );
-			//terminate_counter++;
-		//} while ( (received_status == 0xff) && (terminate_counter < 0xffff) );
-//
-		//printf( "Status 0x%02x.\n", received_status );
-		//if( (received_status & 0x1f) == 0x05 )	// when byte is transmitted the sd-card send an Data Response Byte. First three bit should be ignored. 0x05 means 'data accepted'.
-		//{
-			//terminate_counter = 0;
-			//do 
-			//{
-				//spi_transmit_data( 0xff );
-				//received_status = spi_receive_data();	// if status = 0xff the write process is completed.
-				//printf( "Receive status 0x%02x\n", received_status );
-				//terminate_counter++;
-			//} while ( (received_status != 0xff) && (terminate_counter < 0xffff) );
-		//}
-	//}
-	//return received_status;
-//}
