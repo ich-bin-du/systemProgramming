@@ -30,8 +30,6 @@ int main( void )
     spi_init_master();
 	sd_init();
 
-	//unsigned char msg[] = "Das ist ein Test, ob die Daten auch richtig gespeichert werden.";
-
 	uint8_t buffer[512];
 	for( int i = 512; i > 0; i-- )
 		buffer[i] = i;
@@ -46,18 +44,6 @@ int main( void )
 		PORTA = ~buf[i];
 		printf( "0x%02x ", buf[i] );
 	}
-//
-	////printf( "%s", buffer );
-//
-	//unsigned char status = sd_write_single_block( buffer );
-	//printf( "0x%02x", status );
-//
-	//unsigned char *buf;
-	//if( status != 0xe0 )
-	//{
-		//*buf = sd_read_single_block();
-		//printf( "%s", buf);
-	//}
 
     while (1) 
     {
