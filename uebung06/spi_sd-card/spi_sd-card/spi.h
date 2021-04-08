@@ -16,9 +16,9 @@
 
 void spi_init_master( void );
 
-void spi_transmit_data( unsigned char data );
+void spi_transmit_data( uint8_t data );
 
-unsigned char spi_receive_data( void );
+uint8_t spi_receive_data( void );
 
 void spi_enable_slave_select( void );
 
