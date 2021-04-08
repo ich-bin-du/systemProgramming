@@ -25,16 +25,17 @@ int main( void )
 
 	//unsigned char msg[] = "Das ist ein Test, ob die Daten auch richtig gespeichert werden.";
 
-	unsigned char buffer[512];
+	uint8_t buffer[512];
 	for( int i = 512; i > 0; i-- )
 		buffer[i] = i;
 
 	sd_write_single_block( buffer );
 
-	unsigned char *buf = sd_read_single_block();
+	uint8_t buf[512];
+	sd_read_single_block( buf );
 
 	for( int i = 0; i < 512; ++i )
-	printf( "0x%02x ", buf[i] );
+		printf( "0x%02x ", buf[i] );
 //
 	////printf( "%s", buffer );
 //
