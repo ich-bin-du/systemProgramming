@@ -53,33 +53,31 @@ uint8_t sd_init( void )
 	sd_power_up_seq();
 
 
-	while( (result[0] = sd_go_idle_state_CMD0()) != 0x01 )
+	while( (result[0] = sd_cmd_with_r1_response( CMD0 )) != 0x01 )		// CMD0
 	{
 		printf( "Go_IDLE_STATE = 0x%02x \n ", result[0] );
 		terminate_counter++;
-		if( terminate_counter > 10 ) return 1;
+		if( terminate_counter > 10 ) return SD_ERROR;
 	}
 	printf( "-> Result from Go_IDLE_STATE = 0x%02x \n\n ", result[0] );
 
-	_delay_ms(10);
+	sd_send_if_cond_CMD8( result );		// CMD8
 
-	sd_send_if_cond( result ); // CMD8
+	if( result[0] != 0x01 )
+		return SD_ERROR;
 
-		if( result[0] != 0x01 )
-		return 1;
-
-		if( result[4] != 0xaa )
-		return 1;
+	if( result[4] != 0xaa )
+		return SD_ERROR;
 
 	terminate_counter = 0;
 	do 
 	{
 		if( terminate_counter > 100 ) return 1;
 
-		result[0] = sd_send_app_cmd();	// CMD55
+		result[0] = sd_cmd_with_r1_response( CMD55 );		// CMD55
 
 		if( result[0] < 2 )
-			result[0] = sd_send_op_cond(); // ACMD41
+			result[0] = sd_cmd_with_r1_response( ACMD41 ); // ACMD41
 
 		_delay_ms( 10 );
 
@@ -87,9 +85,7 @@ uint8_t sd_init( void )
 
 	} while ( result[0] != 0x00 );
 
-	_delay_ms(10);
-
-	sd_send_read_ocr( result ); // CMD58
+	sd_send_read_ocr_CMD58( result ); // CMD58
 
 	return 0;
 	//spi_transmit_data( 0xff );
@@ -237,23 +233,11 @@ uint8_t sd_read_r1_result( void )
  *	
  *	
  */
-uint8_t sd_go_idle_state_CMD0( void )
+void sd_read_r3_result( uint8_t *result )
 {
-	printf( "Start sending go_idle_state (CMD0) \n" );
+	printf( "R3-Result is called \n" );
 
-	spi_transmit_data( 0xff );
-	spi_enable_slave_select();
-	spi_transmit_data( 0xff );
-
-	sd_send_cmd_token( CMD0 );
-
-	uint8_t r1_result = sd_read_r1_result();
-
-	spi_transmit_data( 0xff );
-	spi_disable_slave_select();
-	spi_transmit_data( 0xff );
-
-	return r1_result;
+	sd_read_r7_result( result );
 }
 
 
@@ -278,11 +262,36 @@ void sd_read_r7_result( uint8_t *result )
 	}
 }
 
+
 /**
  *	
  *	
  */
-void sd_send_if_cond( uint8_t *result )
+uint8_t sd_cmd_with_r1_response( uint8_t *cmd )
+{
+	printf( "Start sending command with r1 response \n" );
+
+	spi_transmit_data( 0xff );
+	spi_enable_slave_select();
+	spi_transmit_data( 0xff );
+
+	sd_send_cmd_token( cmd );
+
+	uint8_t r1_result = sd_read_r1_result();
+
+	spi_transmit_data( 0xff );
+	spi_disable_slave_select();
+	spi_transmit_data( 0xff );
+
+	return r1_result;
+}
+
+
+/**
+ *	
+ *	
+ */
+void sd_send_if_cond_CMD8( uint8_t *result )
 {
 	printf( "Start sending if_cond (CMD8) \n" );
 
@@ -304,19 +313,7 @@ void sd_send_if_cond( uint8_t *result )
  *	
  *	
  */
-void sd_read_r3_result( uint8_t *result )
-{
-	printf( "R3-Result is called \n" );
-
-	sd_read_r7_result( result );
-}
-
-
-/**
- *	
- *	
- */
-void sd_send_read_ocr( uint8_t *result )
+void sd_send_read_ocr_CMD58( uint8_t *result )
 {
 	printf( "Start sending read_ocr (CMD58) \n" );
 
@@ -333,69 +330,23 @@ void sd_send_read_ocr( uint8_t *result )
 	spi_transmit_data( 0xff );	
 }
 
-/**
- *	
- *	
- */
-uint8_t sd_send_app_cmd( void )
-{
-	printf( "Start sending app_cmd (CMD55) \n" );
-
-	spi_transmit_data( 0xff );
-	spi_enable_slave_select();
-	spi_transmit_data( 0xff );
-
-	sd_send_cmd_token( CMD55 );
-
-	uint8_t r1_result = sd_read_r1_result();
-
-	spi_transmit_data( 0xff );
-	spi_disable_slave_select();
-	spi_transmit_data( 0xff );
-
-	return r1_result;
-}
 
 /**
  *	
  *	
  */
-uint8_t sd_send_op_cond( void )
-{
-	printf( "Start sending send_op_cond (ACMD41) \n" );
-
-	spi_transmit_data( 0xff );
-	spi_enable_slave_select();
-	spi_transmit_data( 0xff );
-
-	sd_send_cmd_token( ACMD41 );
-
-	uint8_t r1_result = sd_read_r1_result();
-
-	spi_transmit_data( 0xff );
-	spi_disable_slave_select();
-	spi_transmit_data( 0xff );
-
-	return r1_result;
-}
-
-/**
- *	
- *	
- */
-unsigned char* sd_read_single_block( void )
+uint8_t sd_read_single_block( uint8_t *buffer )
 {
 	uint8_t r1_result, read;
 	uint16_t terminate_counter;
-	static unsigned char buffer[512];
 
 	// assert chip select
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( CMD17 );	// send CMD17
-	r1_result = sd_read_r1_result();	// read R1
+	sd_send_cmd_token( CMD17 );			// CMD17
+	r1_result = sd_read_r1_result();	// R1 Response
 
 	// if response received from card
 	if( r1_result != 0xff )
@@ -408,7 +359,7 @@ unsigned char* sd_read_single_block( void )
 			if( (read = spi_receive_data() ) != 0xff ) break;
 		}
 		
-		// if response token is 0xFE
+		// if response token is 0xfe
 		if( read == 0xfe )
 		{
 			// read 512 byte block
@@ -425,28 +376,29 @@ unsigned char* sd_read_single_block( void )
 	}
 
 	// deassert chip select
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 
-	return buffer;
+	return r1_result;
 }
+
 
 /**
  *	
  *	
  */
-uint8_t sd_write_single_block( unsigned char* data )
+uint8_t sd_write_single_block( uint8_t* data )
 {
-	uint8_t r1_result, terminate_counter, read;
+	uint8_t r1_result, read, terminate_counter = 0;
 
 	// assert chip select
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 	spi_enable_slave_select();
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 
-	sd_send_cmd_token( CMD24 ); // send CMD24
-	r1_result = sd_read_r1_result();	// read response
+	sd_send_cmd_token( CMD24 );			// CMD24
+	r1_result = sd_read_r1_result();	// R1 Response
 
 	// if no error
 	if( r1_result == 0x00 )
@@ -480,9 +432,9 @@ uint8_t sd_write_single_block( unsigned char* data )
 	}
 
 	// deassert chip select
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 	spi_disable_slave_select();
-	spi_transmit_data( 0xFF );
+	spi_transmit_data( 0xff );
 
 	return r1_result;
 }

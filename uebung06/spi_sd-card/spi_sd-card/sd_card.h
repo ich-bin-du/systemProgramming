@@ -16,6 +16,9 @@
 // Command Pins
 
 
+#define SD_ERROR	1
+
+
 uint8_t sd_init( void );
 
 void sd_card_holder_init( void );
@@ -28,23 +31,25 @@ void sd_send_cmd_token( uint8_t *cmd );
 
 uint8_t sd_read_r1_result( void );
 
-uint8_t sd_go_idle_state_CMD0( void );
+void sd_read_r3_result( uint8_t *result );
 
 void sd_read_r7_result( uint8_t *result );
 
-void sd_send_if_cond( uint8_t *result );
+uint8_t sd_cmd_with_r1_response( uint8_t *cmd );
 
-void sd_read_r3_result( uint8_t *result );
+//uint8_t sd_go_idle_state_CMD0( void );
 
-void sd_send_read_ocr( uint8_t *result );
+//uint8_t sd_send_app_cmd_CMD55( void );
 
-uint8_t sd_send_app_cmd( void );
+//uint8_t sd_send_op_cond_ACMD41( void );
 
-uint8_t sd_send_op_cond( void );
+void sd_send_if_cond_CMD8( uint8_t *result );
 
-unsigned char* sd_read_single_block( void );
+void sd_send_read_ocr_CMD58( uint8_t *result );
 
-uint8_t sd_write_single_block( unsigned char* data );
+uint8_t sd_read_single_block( uint8_t *buffer );
+
+uint8_t sd_write_single_block( uint8_t *data );
 
 //unsigned char* sd_read_single_block( void );
 
