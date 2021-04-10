@@ -10,10 +10,13 @@
 	#define F_CPU 8000000UL
 #endif
 #include <avr/io.h>
-#include <util/delay.h>
 #include <stdio.h>
+#include <avr/interrupt.h>
 #include "sd_card.h"
 #include "spi.h"
+
+volatile uint16_t timer = 0;
+
 
 unsigned char CMD0[] = { 0x40, 0x00, 0x00, 0x00, 0x00, 0x95 };		// GO_IDLE_STATE
 
@@ -37,6 +40,7 @@ unsigned char CMD13[] = { 0x4d, 0x00, 0x00, 0x00, 0x00, 0x01 };		// SEND_STATUS
 
 unsigned char ACMD22[] = { 0x56, 0x00, 0x00, 0x00, 0x00, 0x01 };	// SEND_NUM_WR_BLOCKS
 
+
 /*
  *	Init SD-Card.
  *
@@ -46,12 +50,14 @@ uint8_t sd_init( void )
 {
 	uint8_t result[5], terminate_counter = 0;
 
+	init_timer0();			// call timer init
+
 	printf( "Start SD-Card init.\n" );
 
 	printf( "Begin with SD-Card Holder init and reset \n" );
 	sd_card_holder_init();	// Init SD-Card holder
 
-	_delay_ms( 250 );		// Chapter 6.4. Power Scheme -> sd-card vdd_min is reached within 250ms
+	set_delay_ms( 250 );	// Chapter 6.4. Power Scheme -> sd-card vdd_min is reached within 250ms
 
 	printf( "Begin with Power Up Sequence \n" );
 	sd_power_up_seq();		// Power-Up sequence to communicate with the sd
@@ -92,7 +98,7 @@ uint8_t sd_init( void )
 		if( result[0] < SD_ERASE_RESET )	// 0x01 means idle and 0x00 means init completed, therefore is all greater than 1 an error state
 			result[0] = sd_cmd_with_r1_response( ACMD41 );	// ACMD41
 
-		_delay_ms( 10 );	// short waiting 
+		set_delay_ms( 10 );	// short waiting 
 		terminate_counter++;
 	} while ( result[0] != SD_INIT_COMPLETED );	// if 0x01 means card is still initializing 0x00 means completion of initialization.
 
@@ -130,7 +136,7 @@ void sd_holder_hardware_reset( void )
 {
 	PORTB |= (1 << EN1);
 	PORTB &= ~(1 << EN2);
-	_delay_ms( 75 );
+	set_delay_ms( 75 );
 	PORTB &= ~(1 << EN1);
 	PORTB |= (1 << EN2);
 }
@@ -145,13 +151,25 @@ void sd_power_up_seq( void )
 {
 	spi_disable_slave_select();			// make sure card is deselected (High signal)
 
-	_delay_ms( 10 );					// time for SD-Card to power up
+	set_delay_ms( 10 );					// time for SD-Card to power up
 
 	spi_transmit_data( 0xff );
 	spi_disable_slave_select();			// deselect SD-Card (High signal)
 	
 	for( uint8_t i = 0; i < 80; i++ )	// send 80 clock cycles to synchronize (8Mhz --> 0,008ms)
 		spi_transmit_data( 0xff );	 
+}
+
+
+/**
+ *	Initialize 8bit Timer0 in Clear timer on Compare (CTC).
+ */
+void init_timer0( void )
+{
+	TCCR0 = (1 << WGM01) | (1 << CS01) | (1 << CS00);	// CTC Mode (Clear timer on Compare); Clock Select -> Prescaler 64
+	OCR0 = 125-1;										// Output Compare Register 0CR0 = ((8000000 Hz/64)/1000 ms) = 125 Steps per Second
+	TIMSK = (1 << OCIE0);								// Timer Interrupt Mask Register: activate Compare Interrupt
+	sei();												// activate Global Interrupts
 }
 
 
@@ -443,4 +461,24 @@ uint8_t sd_write_single_block( uint8_t* data )
 	spi_transmit_data( 0xff );
 
 	return r1_result;
+}
+
+
+/**
+ *	Own delay method to user 8bit timer with output compare match.
+ *	
+ *	@param delay	delay in ms.
+ */
+void set_delay_ms( uint16_t delay )
+{
+	timer = 0;
+	while( timer <= delay );
+}
+
+/**
+ *	8bit-Timer0 ISR	
+ */
+ISR( TIMER0_COMP_vect )
+{
+	timer++;
 }
