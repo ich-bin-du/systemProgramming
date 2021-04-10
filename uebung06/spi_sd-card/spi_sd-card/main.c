@@ -9,12 +9,11 @@
 	#define F_CPU 8000000UL
 #endif
 #include <avr/io.h>
-#include <util/delay.h>
 #include "usart.h"
 #include "spi.h"
 #include "sd_card.h"
 
-void init()
+void init_leds()
 {
 	DDRA = 0xff;	// LED Output for debugging
 	PORTA = 0xff;	// LEDs active low
@@ -22,7 +21,7 @@ void init()
 
 int main( void )
 {
-	init();
+	init_leds();
 
 	usart_init();
 	usart_setup_stdio_stream();
@@ -33,6 +32,7 @@ int main( void )
 	uint8_t buffer[512];
 	for( int i = 512; i > 0; i-- )
 		buffer[i] = i;
+	buffer[511] = 0x00;
 
 	sd_write_single_block( buffer );
 
@@ -42,7 +42,7 @@ int main( void )
 	for( int i = 0; i < 512; ++i )
 	{
 		PORTA = ~buf[i];
-		printf( "0x%02x ", buf[i] );
+		printf( "0x%x ", PINA );
 	}
 
     while (1) 
