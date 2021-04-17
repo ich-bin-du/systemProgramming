@@ -13,8 +13,8 @@
 #include <util/delay.h>
 #include "usart.h"
 
-#define TRIG_PIN		PD6
-#define ECHO_PIN		PD7
+#define TRIG_PIN		PD3
+#define ECHO_PIN		PD2
 
 #define ECHO_SIGNAL		(PIND & (1 << ECHO_PIN))
 
@@ -22,19 +22,33 @@
 #define LED_OFF			PORTC |= (1 << PC0);
 
 
-//volatile uint32_t timer0 = 0;
+static volatile uint8_t signal = 0;
+volatile uint32_t timer = 0;
+//static volatile uint32_t duration = 0;
 
 
-///**
- //*
- //*/
-//void init_timer0( void )
+void init_int0()
+{
+	MCUCR |= (1 << ISC00);		// Interrupt 1 Sense Control --> Any logical change on INT1 generates an interrupt request
+	GICR |= (1 << INT0);
+}
+
+
+
+void delay_timer0( void )
+{
+	TCCR0 = (1 << CS00);				// Normal Mode and no Prescaler
+	TCNT0 = 176;
+	while( !(TIFR & (1 << TOV0)) );
+	TCCR0 = 0;
+	TIFR |= (1 << TOV0);
+}
+
+//void init_timer0()
 //{
-	//cli();
-	//TCCR0 = (1 << CS00);				// Normal Mode and no Prescaler
-	//OCR0 = 8-1;							// 8 Step == 1000 us
-	//TIMSK |= (1 << OCIE0);				// enable Output Compare Match
-	//sei();								// active Global interrupts
+	//TCCR0 = (1 << CS00);
+	//TCNT0 = 248;
+	//TIMSK |= (1 << TOIE0);
 //}
 
 
@@ -43,11 +57,10 @@
  */
 void init_pins( void )
 {
-	//printf( "Start init of pins \n" );
-	DDRD |= (1 << TRIG_PIN);			// Trigger Pin is output and Echo Pin is input (default)
+	DDRD |= (1 << TRIG_PIN);	// Trigger Pin is output and Echo Pin is input (default)
 	
-	DDRC |= (1 << PC0);					// LED Output
-	PORTC |= (1 << PC0);				// LEDs are Active Low
+	DDRC = 0xff;				// LED Output
+	PORTC = 0xff;				// LEDs are Active Low
 }
 
 
@@ -56,59 +69,85 @@ void init_pins( void )
  */
 void pulseIn( uint32_t *duration )
 {
-	//printf( "pulseIn is called... \n" );
 	
 	while( !ECHO_SIGNAL );
-
+	
+	timer = 0;
+	TCCR0 |= (1 << CS01);
 	while( ECHO_SIGNAL )
 	{
-		//_delay_us( 58 );
-		*duration = *duration + 1;
+		//_delay_ms( 58 );
+		//*duration = *duration + 1;
+		
 	}
+	TCCR0 &= ~(1 << CS01);
 }
 
 
-//void set_delay_us_t0( uint32_t time )
-//{
-	//timer0 = 0;
-	//while( timer0 <= time );
-//}
+void send_trigger_signal()
+{
+	PORTD |= (1 << TRIG_PIN);
+	delay_timer0();
+	PORTD &= ~(1 << TRIG_PIN);	
+}
+
 
 
 int main( void )
 {
 	usart_init();
-	usart_setup_stdio_stream();
 	
     init_pins();
+	
+	//init_int0();
+	
+	//TCCR1A = 0x00;
+	
+	TIMSK |= (1 << TOIE0);
+	
+	uint32_t distance = 0;
+	
 	//init_timer0();
+	
+	sei();
 	
     while ( 1 ) 
     {	
-		LED_ON;
+		uint32_t duration = 0;
 		
-		uint32_t duration = 0, distance = 0;
-		
-		PORTD &= ~(1 << TRIG_PIN);
-		_delay_us( 2 );
-		PORTD |= (1 << TRIG_PIN);
-		_delay_us( 10 );
-		PORTD &= ~(1 << TRIG_PIN);
-		
+		send_trigger_signal();
+			
 		pulseIn( &duration );
-		distance = (duration / 2) * 0.03435; /*(duration / 2) / 29.1;*/
 		
-		LED_OFF;
-		
+		distance = ( ((timer<<8) + TCNT0) / 2 )  * 0.03435; /*(duration / 2) / 29.1;*/
 		printf( "%lu cm\n", distance );
 		
-		_delay_ms( 1000 );
+		_delay_ms( 500 );		
     }
 }
 
-//ISR( TIMER0_COMP_vect )
+
+ISR( TIMER0_OVF_vect )
+{
+	cli();
+	timer++;
+	sei();
+}
+
+//ISR( INT0_vect )
 //{
-	//timer0++;
+	////PORTC ^= (1 << PC7);	
+	//if( signal == 0 )
+	//{
+		//TCCR1B |= (1 << CS11);
+		//signal = 1;
+	//}
+	//else if( signal == 1 )
+	//{
+		//TCCR1B = 0x00;
+		//duration = TCNT1;
+		////printf( "%lu cm\n", duration );
+		//TCNT1 = 0;
+		//signal = 0;
+	//}
 //}
-
-
