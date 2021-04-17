@@ -23,6 +23,7 @@ void usart_init()
 	UCSRB = (1 << RXEN) | (1 << TXEN) | (1 << RXCIE);	// Enable Rx and Tx and Interrupt for Rx
 	UCSRC = (1 << URSEL) | (1 << UCSZ1) | (1 << UCSZ0);	// USREL = 1 to write to URSRC, Set frame 8-Bit Charakter-Size
 	sei();												// enable global interrupts
+	usart_setup_stdio_stream();
 }
 
 /*
