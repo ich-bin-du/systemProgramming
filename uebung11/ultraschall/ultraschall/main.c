@@ -10,7 +10,6 @@
 #endif
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <util/delay.h>
 #include "usart.h"
 #include "pdc.h"
 
@@ -57,6 +56,7 @@ void delay_timer0( void )
  */
 void pulseIn( void )
 {
+	TIMSK |= (1 << TOIE0);
 	
 	while( !ECHO_SIGNAL );		// waiting for echo signal
 	
@@ -66,6 +66,8 @@ void pulseIn( void )
 	while( ECHO_SIGNAL );		// wait while timer0 is counting till echo is low
 	
 	TCCR0 &= ~(1 << CS01);		// deactivate Timer0 (TCCR0)
+	
+	TIMSK &= ~(1 << TOIE0);
 }
 
 
@@ -93,7 +95,7 @@ int main( void )
 	
 	speaker_init();			// Init speaker from pdc.h lib
 	
-	TIMSK |= (1 << TOIE0);	// Preparation Timer/Counter0 Overflow Interrupt Enable
+	//TIMSK |= (1 << TOIE0);	// Preparation Timer/Counter0 Overflow Interrupt Enable
 	
 	uint32_t distance = 0;	// Declaration of distance var
 	
@@ -113,13 +115,13 @@ int main( void )
 		   want the simple send distance (there without back), you divide by 2.  The factor 0.03435 
 		   corresponds to the Air spreading velocity [ cAir ? (331,5 + 0,6 ambient temp. / °C) m/s ].
 		*/
-		distance = ( ((duration<<8) + TCNT0) / 2 )  * 0.03435;	
+		distance = ( ((duration << 8) + TCNT0) / 2 )  * 0.03435;	
 		
 		speaker_distance_sound( distance );		// call speaker method from pdc.h
 		
 		printf( "%lu cm\n", distance );			// simply print distance value
 		
-		_delay_ms( 50 );						//TODO Delay weg
+		set_delay_ms( 50 );
 	}
 }
 
@@ -129,7 +131,7 @@ int main( void )
  */
 ISR( TIMER0_OVF_vect )
 {
-	cli();
+	//cli();
 	duration++;
-	sei();
+	//sei();
 }
