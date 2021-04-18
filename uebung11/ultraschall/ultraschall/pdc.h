@@ -18,9 +18,11 @@ void speaker_init( void );
 
 void speaker_init_timer1( void );
 
+void speaker_init_timer2( void );
+
 void speaker_set_signal( uint32_t frequency );
 
-void my_delay( uint32_t delay );
+void set_delay_ms( uint32_t delay );
 
 void speaker_play_peep( uint32_t delay );
 
