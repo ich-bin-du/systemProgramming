@@ -21,14 +21,32 @@ void init_leds()
 
 int main( void )
 {
+	uint8_t status = 0;
+	
 	init_leds();
 
 	usart_init();
 	usart_setup_stdio_stream();
 
     spi_init_master();
-	sd_init();
-
+	status = sd_init();
+	
+	if( status == WRITE_PROTECTION_FAIL )
+	{
+		printf( "SD-Card is write protected" );
+		return 1;
+	}
+	if( status == CARD_DETECTION_FAIL )
+	{
+		printf( "No SD-Card inserted." );
+		return 1;
+	}
+	if( status == SD_ERROR )
+	{
+		printf( "Error during initialization" );
+		return 1;
+	}
+		
 	uint8_t buffer[512];
 	for( int i = 512; i > 0; i-- )
 		buffer[i] = i;
@@ -44,9 +62,10 @@ int main( void )
 		PORTA = ~buf[i];
 		printf( "0x%x ", PINA );
 	}
+	
 
-    while (1) 
-    {
-    }
+    //while (1) 
+    //{
+    //}
 }
 

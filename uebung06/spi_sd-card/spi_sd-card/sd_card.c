@@ -61,6 +61,12 @@ uint8_t sd_init( void )
 
 	printf( "Begin with Power Up Sequence \n" );
 	sd_power_up_seq();		// Power-Up sequence to communicate with the sd
+	
+	
+	if( is_write_protected() )
+		return WRITE_PROTECTION_FAIL;
+	if( is_card_detected() )
+		return CARD_DETECTION_FAIL;
 
 	// Try to bring the SD-Card to idle state.
 	// Chapter 6.4. Power Scheme -> In case of SPI host, CMD0 shall be the first command to send the card to SPI mode.
@@ -110,13 +116,18 @@ uint8_t sd_init( void )
 	return SD_RUNNING;
 }
 
+
 /**
  *	Initialize the SD-Card Holder Pins and start reset routine of SD-Card Holder.
+ *	Additionally input pins are Write Protection, Card Detection
+ *	Output pin is the Status LED.
  *	See Data sheet --> C_CONTROL_PRO_SD_CARD_INTERFACE.pdf
  */
 void sd_card_holder_init( void )
 {
-	DDRB |= (1 << EN1) | (1 << EN2);	// EN1 = Reset SD-Card; EN2 = Power SD-Card Holder
+	DDRB |= (1 << EN1) | (1 << EN2);	// EN1 = Reset SD-Card; EN2 = Power SD-Card Holder; WP = Write Protection; CD =  Card Detection; LED = Status LED
+	DDRA |= (1 << LED);
+	PORTA &= ~(1 << LED);
 	
 	sd_holder_hardware_reset();			// apply hardware reset of SD-Card holder
 }
@@ -461,6 +472,30 @@ uint8_t sd_write_single_block( uint8_t* data )
 	spi_transmit_data( 0xff );
 
 	return r1_result;
+}
+
+/**
+ *	Status of write protection.
+ *
+ *	@return uint8_t
+ *			1 = SD-Card is write protected
+ *			0 = otherwise
+ */
+uint8_t is_write_protected( void )
+{
+	return PINB & (1 << WP);
+}
+
+/**
+ *	Status of card detection.
+ *
+ *	@return uint8_t
+ *			1 = No SD-Card detected
+ *			0 = otherwise
+ */
+uint8_t is_card_detected( void )
+{
+	return PINB & (1 << CD);
 }
 
 
