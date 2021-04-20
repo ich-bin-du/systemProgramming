@@ -9,10 +9,11 @@
 #ifndef SPI_H_
 #define SPI_H_
 
-#define SCK		DDB7
-#define MISO	DDB6
-#define MOSI	DDB5
 #define SS		DDB4
+#define MOSI	DDB5
+#define MISO	DDB6
+#define SCK		DDB7
+
 
 void spi_init_master( void );
 
